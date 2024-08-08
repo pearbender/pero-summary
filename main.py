@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, render_template_string
 from twitchrealtimehandler import TwitchAudioGrabber
 import numpy as np
 from io import BytesIO
@@ -62,7 +62,7 @@ def process_audio():
             model="gpt-4o",
             messages=[
                 {"role": "system", "content": "You are a helpful assistant."},
-                {"role": "user", "content": "Please summarize \"What the streamer Pero is doing\" in less than 100 characters like \"Eating breakfast,\" \"Looking for food,\" etc. without including subject based on the following transcription: " + text}
+                {"role": "user", "content": "Please summarize \"What the streamer Pero is doing\" like \"Eating breakfast,\" \"Looking for food,\" etc. without including subject based on the following transcription: " + text}
             ]
         )
         current_summary = completion.choices[0].message.content
@@ -71,6 +71,40 @@ def process_audio():
 @app.route('/summary', methods=['GET'])
 def get_summary():
     return current_summary  # Return plain text response
+
+@app.route('/')
+def index():
+    # Simplified HTML that only displays the summary text in Orbitron font
+    html = """
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P:wght@400;700&display=swap" rel="stylesheet">
+        <style>
+            body {
+                font-family: 'Press Start 2P', sans-serif;
+            }
+        </style>
+        <script>
+            function refreshSummary() {
+                fetch('/summary')
+                    .then(response => response.text())
+                    .then(data => {
+                        document.getElementById('summary').innerText = data;
+                    });
+            }
+            setInterval(refreshSummary, 10000); // Refresh every 10 seconds
+            window.onload = refreshSummary;
+        </script>
+    </head>
+    <body>
+        <div id="summary"></div>
+    </body>
+    </html>
+    """
+    return render_template_string(html)
 
 if __name__ == '__main__':
     threading.Thread(target=process_audio).start()
