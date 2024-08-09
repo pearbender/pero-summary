@@ -1,0 +1,83 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: python-garbage
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pero-summary
+  namespace: python-garbage
+  labels:
+    app: pero-summary
+spec:
+  revisionHistoryLimit: 1
+  selector:
+    matchLabels:
+      app: pero-summary
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: pero-summary
+    spec:
+      containers:
+        - name: main
+          image: docker.fndk.io/fndk/pero-summary:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+          env:
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: pero-summary
+                  key: openai
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pero-summary
+  namespace: python-garbage
+  labels:
+    app: pero-summary
+spec:
+  ports:
+  - name: http
+    port: 80
+  selector:
+    app: pero-summary
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: pero-summary-ingress
+  namespace: python-garbage
+  annotations:
+    kubernetes.io/ingress.class: traefik
+    cert-manager.io/cluster-issuer: letsencrypt
+    traefik.ingress.kubernetes.io/router.middlewares: default-redirect-https@kubernetescrd
+spec:
+  rules:
+    - host: pero-summary.fndk.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: pero-summary
+                port:
+                  name: http
+  tls:
+    - secretName: pero-summary.fndk.io
+      hosts:
+        - pero-summary.fndk.io
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: pero-summary
+data:
+  openai: key

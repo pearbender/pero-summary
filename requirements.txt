@@ -1,7 +1,6 @@
 faster_whisper==1.0.1
 Flask==3.0.3
-numpy==2.0.1
 openai==1.40.1
 pydub==0.25.1
-torch==2.2.2+cu121
+torch==2.2.2+cpu
 twitchrealtimehandler==0.1.2
