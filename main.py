@@ -9,6 +9,15 @@ from faster_whisper import WhisperModel
 import torch
 from openai import OpenAI
 import threading
+import logging
+
+logging.basicConfig(
+    level=logging.INFO,  # Set the logging level
+    format='%(asctime)s - %(levelname)s - %(message)s',  # Define the format of the log messages
+    datefmt='%Y-%m-%d %H:%M:%S',  # Define the date format
+)
+
+logging.getLogger('faster_whisper').setLevel(logging.ERROR)
 
 app = Flask(__name__)
 current_summary = ""
@@ -25,7 +34,7 @@ def process_audio():
     global current_summary
     audio_grabber = TwitchAudioGrabber(twitch_url='https://www.twitch.tv/perokichi_neet', dtype=np.int16, segment_length=5, channels=1, rate=16000)
     audio = AudioSegment.silent(duration=0)
-    model = WhisperModel('large-v2', device="cuda" if torch.cuda.is_available() else "cpu")
+    model = WhisperModel('medium', device="cuda" if torch.cuda.is_available() else "cpu")
     client = OpenAI()
     while True:
         audio_segment = audio_grabber.grab_raw()
@@ -37,8 +46,9 @@ def process_audio():
         except CouldntEncodeError:
             continue
         audio += raw_wav
-        if audio.duration_seconds < 40:
+        if audio.duration_seconds < 60:
             continue
+        logging.info("Processing new audio...")
         nonsilent_ranges = detect_nonsilent(audio, min_silence_len=800, silence_thresh=-45, seek_step=100)
         text = ""
         for start, end in nonsilent_ranges:
@@ -49,7 +59,7 @@ def process_audio():
                                     language='ja',
                                     initial_prompt="PearBender welcome, fuck english... ええと こんばんは、Alex welcome, いやねぇ 今日はねぇ あ ところでさ ごめん あの 今日ねぇ 今日ねぇ みんな 今日ねぇ, cha- cha- what is it? cha- chazay? あとなんか変な味がする… 口の中, Pero welcome, Mathew welcome, Ender welcome. I'm playing wa- i don't get it wa- warhammer",
                                     beam_size=5,
-                                    best_of=5,
+                                    best_of=1,
                                     temperature=(0.0, 0.2, 0.4, 0.6, 0.8, 1.0),
                                     suppress_tokens=[],
                                     vad_filter=True,
@@ -66,7 +76,8 @@ def process_audio():
             ]
         )
         current_summary = completion.choices[0].message.content
-        audio = audio[-20000]
+        logging.info("New summary: " + current_summary)
+        audio = audio[-30000:]
 
 @app.route('/summary', methods=['GET'])
 def get_summary():
