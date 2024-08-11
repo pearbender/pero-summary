@@ -37,7 +37,7 @@ def process_audio():
         except CouldntEncodeError:
             continue
         audio += raw_wav
-        if audio.duration_seconds < 120:
+        if audio.duration_seconds < 40:
             continue
         nonsilent_ranges = detect_nonsilent(audio, min_silence_len=800, silence_thresh=-45, seek_step=100)
         text = ""
@@ -66,7 +66,7 @@ def process_audio():
             ]
         )
         current_summary = completion.choices[0].message.content
-        audio = AudioSegment.silent(duration=0)
+        audio = audio[-20000]
 
 @app.route('/summary', methods=['GET'])
 def get_summary():
@@ -95,7 +95,7 @@ def index():
                         document.getElementById('summary').innerText = data;
                     });
             }
-            setInterval(refreshSummary, 10000); // Refresh every 10 seconds
+            setInterval(refreshSummary, 2000); // Refresh every 2 seconds
             window.onload = refreshSummary;
         </script>
     </head>
