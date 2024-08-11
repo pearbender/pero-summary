@@ -34,7 +34,7 @@ def process_audio():
     global current_summary
     audio_grabber = TwitchAudioGrabber(twitch_url='https://www.twitch.tv/perokichi_neet', dtype=np.int16, segment_length=5, channels=1, rate=16000)
     audio = AudioSegment.silent(duration=0)
-    model = WhisperModel('medium', device="cuda" if torch.cuda.is_available() else "cpu")
+    model = WhisperModel('medium', device="cpu")
     client = OpenAI()
     while True:
         audio_segment = audio_grabber.grab_raw()
@@ -48,28 +48,26 @@ def process_audio():
         audio += raw_wav
         if audio.duration_seconds < 60:
             continue
-        logging.info("Processing new audio...")
-        nonsilent_ranges = detect_nonsilent(audio, min_silence_len=800, silence_thresh=-45, seek_step=100)
+        logging.info(f"Processing new audio of length {audio.duration_seconds}s...")
+        temp_file_path = 'data/temp.wav'
+        audio.export(temp_file_path)
         text = ""
-        for start, end in nonsilent_ranges:
-            temp_file_path = 'data/temp.wav'
-            segment = audio[start:end]
-            segment.export(temp_file_path)
-            data = model.transcribe(temp_file_path,
-                                    language='ja',
-                                    initial_prompt="PearBender welcome, fuck english... ええと こんばんは、Alex welcome, いやねぇ 今日はねぇ あ ところでさ ごめん あの 今日ねぇ 今日ねぇ みんな 今日ねぇ, cha- cha- what is it? cha- chazay? あとなんか変な味がする… 口の中, Pero welcome, Mathew welcome, Ender welcome. I'm playing wa- i don't get it wa- warhammer",
-                                    beam_size=5,
-                                    best_of=1,
-                                    temperature=(0.0, 0.2, 0.4, 0.6, 0.8, 1.0),
-                                    suppress_tokens=[],
-                                    vad_filter=True,
-                                    vad_parameters={'min_silence_duration_ms': 800}
-                                    )
-            segments = list(get_segments(data))
-            for segment in segments:
-                text += segment['text']
+        data = model.transcribe(temp_file_path,
+		language='ja',
+		initial_prompt="PearBender welcome, fuck english... ええと こんばんは、Alex welcome, いやねぇ 今日はねぇ あ ところでさ ごめん あの 今日ねぇ 今日ねぇ みんな 今日ねぇ, cha- cha- what is it? cha- chazay? あとなんか変な味がする… 口の中, Pero welcome, Mathew welcome, Ender welcome. I'm playing wa- i don't get it wa- warhammer",
+		beam_size=5,
+		best_of=1,
+		temperature=(0.0, 0.2, 0.4, 0.6, 0.8, 1.0),
+		suppress_tokens=[],
+		vad_filter=True,
+		vad_parameters={'min_silence_duration_ms': 800}
+	)
+        segments = list(get_segments(data))
+        for segment in segments:
+            text += segment['text']
         completion = client.chat.completions.create(
-            model="gpt-4o",
+            model="gpt-4o-mini",
+	    max_tokens=50,
             messages=[
                 {"role": "system", "content": "You are a helpful assistant."},
                 {"role": "user", "content": "Please summarize \"What the streamer Pero is doing\" like \"Eating breakfast,\" \"Looking for food,\" etc. without including subject based on the following transcription: " + text}
