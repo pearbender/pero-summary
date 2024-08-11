@@ -4,9 +4,7 @@ import numpy as np
 from io import BytesIO
 from pydub import AudioSegment
 from pydub.exceptions import CouldntEncodeError
-from pydub.silence import detect_nonsilent
 from faster_whisper import WhisperModel
-import torch
 from openai import OpenAI
 import threading
 import logging
