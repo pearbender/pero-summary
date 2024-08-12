@@ -72,18 +72,18 @@ def process_audio():
         logging.info("Summarizing audio...")
         completion = client.chat.completions.create(
             model="gpt-4o-mini",
-	    max_tokens=50,
+	    max_tokens=20,
             messages=[
                 {"role": "system", "content": "You are a helpful assistant."},
-                {"role": "user", "content": "Please summarize \"What the streamer Pero is doing\" like \"Eating breakfast,\" \"Looking for food,\" etc. without including subject based on the following transcription: " + translation.text}
+                {"role": "user", "content": "Please summarize what the streamer Pero is doing in once sentence, like \"Pero is...\", based on the following transcription. Use commas instead of bullet points. Transcription: " + translation.text}
             ]
         )
         current_summary = completion.choices[0].message.content
-        logging.info("New summary: " + current_summary)
+        logging.info("New summary: " + current_summary[:100] + '...')
 
 @app.route('/summary', methods=['GET'])
 def get_summary():
-    return 'Pero is: ' + current_summary  # Return plain text response
+    return current_summary[-100:] + '...'  # Return plain text response
 
 @app.route('/')
 def index():
