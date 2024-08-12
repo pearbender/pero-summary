@@ -83,7 +83,7 @@ def process_audio():
 
 @app.route('/summary', methods=['GET'])
 def get_summary():
-    return current_summary[:100] + '...'  # Return plain text response
+    return current_summary[:100] + 'this is a test...'  # Return plain text response
 
 @app.route('/')
 def index():
@@ -107,15 +107,42 @@ def index():
             }
         </style>
         <script>
+            let currentText = "";  // Store the currently displayed text
+
+            function typeText(element, text, delay, callback) {
+                element.textContent = "";  // Clear existing text
+                let i = 0;
+
+                function typeNextChar() {
+                    if (i < text.length) {
+                        element.textContent += text[i];  // Append each character including spaces
+                        i++;
+                        setTimeout(typeNextChar, delay);
+                    } else if (callback) {
+                        callback();  // Call the callback function after the text is done
+                    }
+                }
+
+                typeNextChar();
+            }
+
             function refreshSummary() {
                 fetch('/summary')
                     .then(response => response.text())
                     .then(data => {
-                        document.getElementById('summary').innerText = data;
+                        if (data !== currentText) {  // Only update if the text is different
+                            currentText = data;
+                            const summaryElement = document.getElementById('summary');
+                            typeText(summaryElement, data, 80, () => {
+                                setTimeout(refreshSummary, 2000);  // Wait 2000ms and then check again
+                            });
+                        } else {
+                            setTimeout(refreshSummary, 2000);  // Wait 2000ms and then check again
+                        }
                     });
             }
-            setInterval(refreshSummary, 2000); // Refresh every 2 seconds
-            window.onload = refreshSummary;
+
+            window.onload = refreshSummary;  // Start fetching and typing on page load
         </script>
     </head>
     <body>
