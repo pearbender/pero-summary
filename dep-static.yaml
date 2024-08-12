@@ -1,0 +1,150 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: python-garbage
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: static-files
+  namespace: python-garbage
+  labels:
+    app: static-files
+spec:
+  selector:
+    app: static-files
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: 80
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: static-files-static
+  namespace: python-garbage
+  labels:
+    app: static-files
+spec:
+  storageClassName: rook-cephfs
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: static-files-server
+  namespace: python-garbage
+  labels:
+    app: static-files
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: static-files
+  template:
+    metadata:
+      labels:
+        app: static-files
+    spec:
+      volumes:
+        - name: nginx-conf
+          configMap:
+            name: static-files-nginx-conf
+        - name: static
+          persistentVolumeClaim:
+            claimName: static-files-static
+      containers:
+      - name: nginx
+        image: nginx:latest
+        imagePullPolicy: Always
+        volumeMounts:
+          - name: nginx-conf
+            mountPath: /etc/nginx/nginx.conf
+            subPath: nginx.conf
+          - name: static
+            mountPath: /www
+        ports:
+        - containerPort: 80
+          protocol: TCP
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: static-files-nginx-conf
+  namespace: python-garbage
+data:
+  nginx.conf: |
+    
+    #user  nobody;
+    worker_processes  4;
+
+    #error_log  logs/error.log;
+    #error_log  logs/error.log  notice;
+    #error_log  logs/error.log  info;
+
+    #pid        logs/nginx.pid;
+
+
+    events {
+        worker_connections  1024;
+    }
+
+    http {
+        include       mime.types;
+        default_type  application/octet-stream;
+
+        #log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
+        #                  '$status $body_bytes_sent "$http_referer" '
+        #                  '"$http_user_agent" "$http_x_forwarded_for"';
+
+        access_log off;
+        sendfile_max_chunk 512k;
+        sendfile        on;
+        tcp_nopush     on;
+
+        keepalive_timeout  65;
+
+        gzip  on;
+
+        proxy_cache_path /tmp/mycache keys_zone=mycache:70m;
+
+        server {
+            listen 80;
+            root /www;
+
+            location / {
+                try_files $uri $uri/ =404;
+            }
+        }
+    }
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: static-files-ingress
+  namespace: python-garbage
+  annotations:
+    kubernetes.io/ingress.class: traefik
+    cert-manager.io/cluster-issuer: letsencrypt
+    traefik.ingress.kubernetes.io/router.middlewares: default-redirect-https@kubernetescrd
+spec:
+  rules:
+    - host: pero-summary.fndk.io
+      http:
+        paths:
+        - path: /static/
+          pathType: Prefix
+          backend:
+            service:
+              name: static-files
+              port:
+                name: http
+  tls:
+    - secretName: pero-summary.fndk.io
+      hosts:
+        - pero-summary.fndk.io
