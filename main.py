@@ -83,7 +83,7 @@ def process_audio():
 
 @app.route('/summary', methods=['GET'])
 def get_summary():
-    return current_summary[-100:] + '...'  # Return plain text response
+    return current_summary[:100] + '...'  # Return plain text response
 
 @app.route('/')
 def index():
